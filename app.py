@@ -1,7 +1,7 @@
 import os
 import html
 import base64
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import requests
@@ -38,7 +38,8 @@ def 读取视频为_base64(video_path):
 def 选择背景视频():
     """根据当前时间选择白天或夜晚背景视频。"""
     # 早上 6 点到晚上 6 点用白天背景，其余时间用夜晚背景。
-    hour = datetime.now().hour
+    china_time = datetime.now(timezone(timedelta(hours=8)))
+    hour = china_time.hour
     if 6 <= hour < 18:
         return DAY_VIDEO
     return NIGHT_VIDEO
