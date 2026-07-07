@@ -20,7 +20,7 @@ API_KEY = 读取配置值("QWEATHER_API_KEY")
 API_HOST = 读取配置值("QWEATHER_API_HOST", "m457rn9bm8.re.qweatherapi.com")
 
 
-VIDEO_DIR = Path(__file__).parent / "assets" / "新建文件夹"
+VIDEO_DIR = Path(__file__).parent / "assets" / "backgrounds"
 DAY_VIDEO = VIDEO_DIR / "白天.mp4"
 NIGHT_VIDEO = VIDEO_DIR / "夜晚_无缝循环.mp4"
 
