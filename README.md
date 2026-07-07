@@ -17,6 +17,7 @@ https://weather-app-app-xh6zah5padrzxe7bqoab9w.streamlit.app/
 ## 项目截图 | Screenshot
 
 <img width="2559" height="1344" alt="image" src="https://github.com/user-attachments/assets/58292320-a235-470c-84c6-2b172958de98" />
+<img width="2559" height="1343" alt="image" src="https://github.com/user-attachments/assets/bffa4b5a-b65c-4cb9-b6e6-cf0090f785fb" />
 
 
 
