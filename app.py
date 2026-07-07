@@ -330,22 +330,27 @@ def 应用极简样式():
     background: transparent;
 }
 .block-container {
-    max-width: 1080px;
-    padding-top: 0;
-    padding-bottom: 0;
+    max-width: 1080px !important;
+    width: 100% !important;
+    min-height: 100vh !important;
+    padding: 0 !important;
     position: relative;
     z-index: 1;
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
 }
-div[data-testid="stTextInput"] label {
-    display: none;
+[data-testid="stAppViewBlockContainer"] {
+    min-height: 100vh !important;
+    padding: 0 !important;
 }
 section[data-testid="stMain"] > div {
     padding-top: 0 !important;
+    padding-bottom: 0 !important;
+}
+div[data-testid="stTextInput"] label {
+    display: none;
 }
 .st-key-search_glass {
     width: min(820px, calc(100vw - 56px));
@@ -594,6 +599,8 @@ section[data-testid="stMain"] > div {
     background: #ffffff !important;
     color: #111827 !important;
     box-shadow: 0 12px 30px rgba(15, 23, 42, 0.14) !important;
+    pointer-events: auto !important;
+    transform: translate(-18px, 0);
 }
 .st-key-weather_close_button button:hover {
     background: #f3f4f6 !important;
@@ -601,10 +608,7 @@ section[data-testid="stMain"] > div {
 }
 @media (max-width: 760px) {
     .block-container { padding-top: 0; padding-bottom: 0; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-    section[data-testid="stMain"] > div {
-    padding-top: 0 !important;
-}
-.st-key-search_glass { width: min(94vw, 640px); padding: 30px 28px; border-radius: 26px; }
+    .st-key-search_glass { width: min(94vw, 640px); padding: 30px 28px; border-radius: 26px; }
     .st-key-search_glass [data-testid="stHorizontalBlock"] { gap: 16px; }
     .st-key-search_glass .search-title { text-align: left; font-size: 30px; line-height: 1.18; white-space: normal; }
     .st-key-search_glass div[data-testid="stTextInput"] { width: 200px !important; max-width: 200px !important; margin: 0 !important; }
@@ -617,6 +621,48 @@ section[data-testid="stMain"] > div {
     .weather-panel-grid { grid-template-columns: 1fr; }
     .weather-panel-left, .weather-panel-right { padding: 28px; }
     .highlight-grid { grid-template-columns: 1fr; }
+}
+
+/* Cloud layout overrides */
+.block-container {
+    max-width: 1080px !important;
+    width: 100% !important;
+    min-height: 100vh !important;
+    padding: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+[data-testid="stAppViewBlockContainer"] {
+    min-height: 100vh !important;
+    padding: 0 !important;
+}
+.weather-panel {
+    width: min(980px, calc(100vw - 48px)) !important;
+    max-width: min(980px, calc(100vw - 48px)) !important;
+    margin: 0 auto !important;
+}
+.st-key-weather_close_button {
+    width: min(980px, calc(100vw - 48px)) !important;
+    max-width: min(980px, calc(100vw - 48px)) !important;
+    height: 0 !important;
+    margin: 0 auto -42px auto !important;
+    padding: 0 !important;
+    position: relative !important;
+    top: 24px !important;
+    z-index: 1000 !important;
+    pointer-events: none !important;
+}
+.st-key-weather_close_button div[data-testid="stButton"] {
+    width: 100% !important;
+    display: flex !important;
+    justify-content: flex-end !important;
+    pointer-events: none !important;
+}
+.st-key-weather_close_button button {
+    pointer-events: auto !important;
+    transform: translate(-18px, 0) !important;
 }
 </style>
         """,
@@ -711,7 +757,7 @@ def 主程序():
 
     if st.session_state.show_weather_card and st.session_state.last_city_name:
         st.markdown(
-            "<style>.block-container { padding-top: 0; padding-bottom: 0; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; }</style>",
+            "<style>.block-container { padding: 0 !important; min-height: 100vh !important; display: flex !important; flex-direction: column !important; align-items: center !important; justify-content: center !important; }</style>",
             unsafe_allow_html=True,
         )
         city_name = st.session_state.last_city_name
