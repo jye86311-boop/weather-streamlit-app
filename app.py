@@ -1,4 +1,5 @@
 import os
+import json
 import html
 import base64
 from datetime import datetime, timedelta, timezone
@@ -164,6 +165,242 @@ def 获取城市预警(location_id, api_key, api_host):
         api_key,
     )
     return data.get("warning", [])
+
+
+@st.cache_data(ttl=300, show_spinner=False)
+def 获取全国重点预警():
+    """从中国天气网预警频道读取全国红色和橙色预警，并按省份合并。"""
+    # 这个接口是中国天气网预警页面使用的数据源，返回全国当前生效预警列表。
+    url = f"https://product.weather.com.cn/alarm/grepalarm_cn.php?_={int(datetime.now(timezone.utc).timestamp() * 1000)}"
+    headers = {
+        "User-Agent": "Mozilla/5.0",
+        "Referer": "https://www.weather.com.cn/alarm/",
+    }
+
+    try:
+        response = requests.get(url, headers=headers, timeout=12)
+        response.raise_for_status()
+        text = response.content.decode("utf-8", errors="ignore").strip()
+        if text.startswith("var alarminfo="):
+            text = text[len("var alarminfo="):]
+        text = text.rstrip(";")
+        data = json.loads(text)
+    except Exception as error:
+        return {
+            "groups": [],
+            "warnings": [],
+            "total": 0,
+            "red": 0,
+            "orange": 0,
+            "error": f"全国预警数据暂时无法读取：{error}",
+        }
+
+    rows = data.get("data", [])
+    warnings = []
+    red_count = 0
+    orange_count = 0
+
+    for row in rows:
+        if not isinstance(row, list) or len(row) < 7:
+            continue
+
+        title = str(row[6])
+        if "红色" in title:
+            level = "红色"
+            red_count += 1
+        elif "橙色" in title:
+            level = "橙色"
+            orange_count += 1
+        else:
+            continue
+
+        province, area = 提取省份和地区(str(row[0]))
+        file_name = str(row[1])
+        publish_time, sort_time = 解析预警发布时间(file_name)
+        warnings.append(
+            {
+                "province": province,
+                "area": area,
+                "location": str(row[0]),
+                "title": title,
+                "level": level,
+                "type": 提取预警类型(title, level),
+                "publish_time": publish_time,
+                "sort_time": sort_time,
+            }
+        )
+
+    groups = 合并全国重点预警(warnings)
+
+    return {
+        "groups": groups,
+        "warnings": warnings,
+        "total": int(data.get("count") or len(rows)),
+        "red": red_count,
+        "orange": orange_count,
+        "error": "",
+    }
+
+
+PROVINCE_PATTERNS = [
+    ("内蒙古自治区", "内蒙古"),
+    ("黑龙江省", "黑龙江"),
+    ("广西壮族自治区", "广西"),
+    ("宁夏回族自治区", "宁夏"),
+    ("新疆维吾尔自治区", "新疆"),
+    ("西藏自治区", "西藏"),
+    ("香港特别行政区", "香港"),
+    ("澳门特别行政区", "澳门"),
+    ("北京市", "北京"),
+    ("天津市", "天津"),
+    ("上海市", "上海"),
+    ("重庆市", "重庆"),
+    ("河北省", "河北"),
+    ("山西省", "山西"),
+    ("辽宁省", "辽宁"),
+    ("吉林省", "吉林"),
+    ("江苏省", "江苏"),
+    ("浙江省", "浙江"),
+    ("安徽省", "安徽"),
+    ("福建省", "福建"),
+    ("江西省", "江西"),
+    ("山东省", "山东"),
+    ("河南省", "河南"),
+    ("湖北省", "湖北"),
+    ("湖南省", "湖南"),
+    ("广东省", "广东"),
+    ("海南省", "海南"),
+    ("四川省", "四川"),
+    ("贵州省", "贵州"),
+    ("云南省", "云南"),
+    ("陕西省", "陕西"),
+    ("甘肃省", "甘肃"),
+    ("青海省", "青海"),
+    ("台湾省", "台湾"),
+]
+
+PROVINCE_PINYIN_ORDER = [
+    "安徽",
+    "北京",
+    "重庆",
+    "福建",
+    "甘肃",
+    "广东",
+    "广西",
+    "贵州",
+    "海南",
+    "河北",
+    "河南",
+    "黑龙江",
+    "湖北",
+    "湖南",
+    "吉林",
+    "江苏",
+    "江西",
+    "辽宁",
+    "内蒙古",
+    "宁夏",
+    "青海",
+    "山东",
+    "山西",
+    "陕西",
+    "上海",
+    "四川",
+    "天津",
+    "西藏",
+    "新疆",
+    "云南",
+    "浙江",
+    "香港",
+    "澳门",
+    "台湾",
+]
+
+PROVINCE_SORT_INDEX = {province: index for index, province in enumerate(PROVINCE_PINYIN_ORDER)}
+
+
+def 提取省份和地区(location):
+    """把完整地区名拆成省份和具体市县。"""
+    # 例如“湖北省孝感市大悟县”会拆成“湖北”和“孝感市大悟县”。
+    text = str(location).strip()
+    for full_name, short_name in PROVINCE_PATTERNS:
+        if text.startswith(full_name):
+            area = text[len(full_name):].strip()
+            return short_name, area or text
+    return "其他", text
+
+
+def 获取省份排序值(province):
+    """按照省份拼音顺序返回排序值。"""
+    return PROVINCE_SORT_INDEX.get(province, 999), province
+
+
+def 合并全国重点预警(warnings):
+    """把同省份、同类型、同等级的预警合并成一条展示卡片。"""
+    grouped = {}
+    for warning in warnings:
+        key = (warning["province"], warning["type"], warning["level"])
+        if key not in grouped:
+            grouped[key] = {
+                "province": warning["province"],
+                "type": warning["type"],
+                "level": warning["level"],
+                "areas": [],
+                "area_set": set(),
+                "latest_time": warning["publish_time"],
+                "sort_time": warning["sort_time"],
+            }
+
+        group = grouped[key]
+        area = warning["area"] or warning["location"]
+        if area not in group["area_set"]:
+            group["areas"].append(area)
+            group["area_set"].add(area)
+        if warning["sort_time"] > group["sort_time"]:
+            group["sort_time"] = warning["sort_time"]
+            group["latest_time"] = warning["publish_time"]
+
+    result = []
+    for group in grouped.values():
+        group.pop("area_set", None)
+        group["count"] = len(group["areas"])
+        result.append(group)
+
+    result.sort(
+        key=lambda item: (
+            *获取省份排序值(item["province"]),
+            -item["sort_time"],
+            item["type"],
+            item["level"],
+        )
+    )
+    return result
+
+
+def 解析预警发布时间(file_name):
+    """从预警详情文件名中解析发布时间。"""
+    # 文件名通常类似 1010413-20260717152420-0201.html，中间 14 位是发布时间。
+    for part in str(file_name).split("-"):
+        candidate = part[:14]
+        if len(candidate) == 14 and candidate.isdigit():
+            try:
+                dt = datetime.strptime(candidate, "%Y%m%d%H%M%S")
+                return dt.strftime("%m-%d %H:%M"), int(candidate)
+            except ValueError:
+                pass
+    return "时间未知", 0
+
+
+def 提取预警类型(title, level):
+    """从预警标题中提取暴雨、高温、强对流等类型名称。"""
+    # 标题通常是“某地发布暴雨橙色预警信号”，这里保留中间的天气灾害类型。
+    text = str(title)
+    if "发布" in text:
+        text = text.split("发布", 1)[1]
+    text = text.replace(level, "")
+    text = text.replace("预警信号", "")
+    text = text.replace("预警", "")
+    return text.strip() or "气象"
 
 
 def 获取天气图标(weather_text):
@@ -624,6 +861,226 @@ div[data-testid="stTextInput"] label {
     .highlight-grid { grid-template-columns: 1fr; }
 }
 
+
+
+/* National warning dashboard homepage */
+.st-key-search_glass {
+    position: fixed !important;
+    top: 28px !important;
+    left: 32px !important;
+    z-index: 20 !important;
+    width: 540px !important;
+    max-width: calc(100vw - 64px) !important;
+    margin: 0 !important;
+    padding: 20px 24px 18px 24px !important;
+    border-radius: 28px !important;
+    background: rgba(255, 255, 255, 0.44) !important;
+    border: 1px solid rgba(255, 255, 255, 0.78) !important;
+    box-shadow: 0 24px 70px rgba(15, 23, 42, 0.18) !important;
+    backdrop-filter: blur(18px) saturate(145%) !important;
+}
+.st-key-search_glass [data-testid="stHorizontalBlock"] {
+    gap: 12px !important;
+}
+.st-key-search_glass .search-title {
+    font-size: 24px !important;
+    line-height: 1.16 !important;
+    white-space: nowrap !important;
+    text-align: left !important;
+}
+.st-key-search_glass div[data-testid="stTextInput"] {
+    width: 150px !important;
+    max-width: 150px !important;
+    min-height: 48px !important;
+}
+.st-key-search_glass div[data-testid="stTextInput"] > div,
+.st-key-search_glass div[data-baseweb="input"] {
+    width: 150px !important;
+    height: 48px !important;
+}
+.st-key-search_glass div[data-testid="stTextInput"] input {
+    width: 150px !important;
+    height: 48px !important;
+    font-size: 18px !important;
+    padding: 0 18px !important;
+}
+.st-key-search_glass .hint-text {
+    margin-top: 8px !important;
+    font-size: 12px !important;
+    text-align: center !important;
+}
+.national-warning-glass {
+    width: min(980px, calc(100vw - 96px));
+    max-height: min(70vh, 700px);
+    margin: 0 auto;
+    padding: 26px;
+    border-radius: 34px;
+    background: rgba(255, 255, 255, 0.46);
+    border: 1px solid rgba(255, 255, 255, 0.78);
+    box-shadow: 0 30px 90px rgba(15, 23, 42, 0.20);
+    backdrop-filter: blur(18px) saturate(145%);
+}
+.national-warning-head {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 18px;
+}
+.national-warning-title {
+    color: #08111f;
+    font-size: 32px;
+    line-height: 1.1;
+    font-weight: 900;
+    letter-spacing: 0;
+}
+.national-warning-subtitle {
+    margin-top: 8px;
+    color: #475569;
+    font-size: 14px;
+    font-weight: 600;
+}
+.national-warning-counts {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 8px;
+    min-width: 270px;
+}
+.national-badge {
+    display: inline-flex;
+    align-items: center;
+    height: 30px;
+    padding: 0 12px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 800;
+    white-space: nowrap;
+}
+.badge-red {
+    color: #991b1b;
+    background: rgba(254, 226, 226, 0.86);
+}
+.badge-orange {
+    color: #9a3412;
+    background: rgba(255, 237, 213, 0.90);
+}
+.badge-total {
+    color: #334155;
+    background: rgba(248, 250, 252, 0.88);
+}
+.national-warning-list {
+    margin-top: 20px;
+    max-height: calc(min(70vh, 700px) - 128px);
+    overflow-y: auto;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    padding: 2px 6px 2px 0;
+}
+.national-warning-list::-webkit-scrollbar {
+    width: 8px;
+}
+.national-warning-list::-webkit-scrollbar-thumb {
+    background: rgba(100, 116, 139, 0.35);
+    border-radius: 999px;
+}
+.national-warning-item {
+    min-height: 122px;
+    padding: 13px 14px 12px 16px;
+    border-radius: 18px;
+    border-left: 6px solid #f97316;
+    background: rgba(255, 255, 255, 0.72);
+    box-shadow: 0 14px 36px rgba(15, 23, 42, 0.09);
+}
+.national-warning-item.level-red {
+    border-left-color: #ef4444;
+    background: rgba(254, 242, 242, 0.82);
+}
+.national-warning-item.level-orange {
+    border-left-color: #f97316;
+    background: rgba(255, 247, 237, 0.82);
+}
+.national-warning-item-top {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    color: #64748b;
+    font-size: 12px;
+    font-weight: 800;
+}
+.national-warning-province {
+    color: #0f172a;
+}
+.national-warning-time {
+    color: #64748b;
+    white-space: nowrap;
+}
+.national-warning-type {
+    margin-top: 8px;
+    color: #0f172a;
+    font-size: 17px;
+    line-height: 1.2;
+    font-weight: 900;
+}
+.national-warning-areas {
+    margin-top: 9px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+.national-warning-area-chip {
+    display: inline-flex;
+    align-items: center;
+    max-width: 100%;
+    min-height: 24px;
+    padding: 3px 9px;
+    border-radius: 999px;
+    color: #475569;
+    background: rgba(255, 255, 255, 0.74);
+    border: 1px solid rgba(226, 232, 240, 0.88);
+    font-size: 12px;
+    line-height: 1.25;
+    font-weight: 700;
+}
+.national-warning-area-chip.more {
+    color: #0f172a;
+    background: rgba(241, 245, 249, 0.88);
+}
+.national-warning-empty {
+    margin-top: 20px;
+    padding: 28px;
+    border-radius: 20px;
+    color: #475569;
+    background: rgba(255, 255, 255, 0.72);
+    text-align: center;
+    font-weight: 800;
+}
+@media (max-width: 980px), (max-height: 760px) {
+    .st-key-search_glass {
+        position: relative !important;
+        top: auto !important;
+        left: auto !important;
+        width: min(94vw, 560px) !important;
+        margin: 20px auto 18px auto !important;
+    }
+    .national-warning-glass {
+        width: min(94vw, 760px);
+        max-height: 62vh;
+    }
+    .national-warning-head {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+    .national-warning-counts {
+        justify-content: flex-start;
+        min-width: 0;
+    }
+    .national-warning-list {
+        grid-template-columns: 1fr;
+        max-height: calc(62vh - 152px);
+    }
+}
+
 /* Cloud layout overrides */
 .block-container {
     max-width: 1080px !important;
@@ -733,6 +1190,64 @@ def 渲染天气浮层(city, now, warnings, warning_source_note=""):
     )
     st.markdown(panel_html, unsafe_allow_html=True)
 
+
+def 渲染全国预警首页(result):
+    """在首页中间渲染全国红色和橙色预警列表。"""
+    groups = result.get("groups", [])
+    total = result.get("total", 0)
+    red_count = result.get("red", 0)
+    orange_count = result.get("orange", 0)
+    error = result.get("error", "")
+    key_count = red_count + orange_count
+
+    if error:
+        body_html = f'<div class="national-warning-empty">{html.escape(error)}</div>'
+    elif not groups:
+        body_html = '<div class="national-warning-empty">当前暂无红色或橙色预警信号</div>'
+    else:
+        items = []
+        for group in groups:
+            level_class = "level-red" if group["level"] == "红色" else "level-orange"
+            areas = group.get("areas", [])
+            visible_areas = areas[:12]
+            area_chips = "".join(
+                f'<span class="national-warning-area-chip">{html.escape(area)}</span>'
+                for area in visible_areas
+            )
+            if len(areas) > len(visible_areas):
+                area_chips += f'<span class="national-warning-area-chip more">+{len(areas) - len(visible_areas)} 个地区</span>'
+
+            items.append(
+                f'<article class="national-warning-item {level_class}">'
+                f'<div class="national-warning-item-top">'
+                f'<span class="national-warning-province">{html.escape(group["province"])}</span>'
+                f'<span class="national-warning-time">涉及 {group["count"]} 地 · 最新 {html.escape(group["latest_time"])}</span>'
+                f'</div>'
+                f'<div class="national-warning-type">{html.escape(group["type"])}{html.escape(group["level"])}预警</div>'
+                f'<div class="national-warning-areas">{area_chips}</div>'
+                f'</article>'
+            )
+        body_html = '<div class="national-warning-list">' + "".join(items) + "</div>"
+
+    panel_html = (
+        '<section class="national-warning-glass">'
+        '<div class="national-warning-head">'
+        '<div>'
+        '<div class="national-warning-title">全国预警信号</div>'
+        '<div class="national-warning-subtitle">按省份拼音排序，同类预警合并显示，仅保留红色、橙色重点预警</div>'
+        '</div>'
+        '<div class="national-warning-counts">'
+        f'<span class="national-badge badge-red">红色 {red_count}</span>'
+        f'<span class="national-badge badge-orange">橙色 {orange_count}</span>'
+        f'<span class="national-badge badge-total">重点 {key_count} / 全部 {total}</span>'
+        '</div>'
+        '</div>'
+        f'{body_html}'
+        '</section>'
+    )
+    st.markdown(panel_html, unsafe_allow_html=True)
+
+
 def 主程序():
     """运行极简天气查询网页。"""
     # 输入城市后保存查询结果；关闭按钮只隐藏卡片，不清空输入框。
@@ -775,6 +1290,8 @@ def 主程序():
         if not city_name.strip():
             st.session_state.show_weather_card = False
             st.session_state.last_city_name = ""
+            national_warning_result = 获取全国重点预警()
+            渲染全国预警首页(national_warning_result)
             return
 
         st.session_state.show_weather_card = True
