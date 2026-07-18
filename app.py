@@ -1,3 +1,9 @@
+# ===================== 可调参数 =====================
+# 全国预警面板透明度：数值越大越不透明，越小越透明。
+# 建议试验范围：0.35 - 0.75
+NATIONAL_WARNING_GLASS_ALPHA = 0.1
+# ====================================================
+
 import os
 import json
 import html
@@ -7,6 +13,7 @@ from pathlib import Path
 
 import requests
 import streamlit as st
+
 
 
 def 读取配置值(name, default=""):
@@ -24,6 +31,7 @@ API_HOST = 读取配置值("QWEATHER_API_HOST", "m457rn9bm8.re.qweatherapi.com")
 VIDEO_DIR = Path(__file__).parent / "assets" / "backgrounds"
 DAY_VIDEO = VIDEO_DIR / "白天.mp4"
 NIGHT_VIDEO = VIDEO_DIR / "夜晚_无缝循环.mp4"
+
 
 
 @st.cache_data(show_spinner=False)
@@ -1230,11 +1238,11 @@ def 渲染全国预警首页(result):
         body_html = '<div class="national-warning-list">' + "".join(items) + "</div>"
 
     panel_html = (
-        '<section class="national-warning-glass">'
+        f'<section class="national-warning-glass" style="background: rgba(255, 255, 255, {NATIONAL_WARNING_GLASS_ALPHA});">'
         '<div class="national-warning-head">'
         '<div>'
         '<div class="national-warning-title">全国预警信号</div>'
-        '<div class="national-warning-subtitle">按省份拼音排序，同类预警合并显示，仅保留红色、橙色重点预警</div>'
+        '<div class="national-warning-subtitle">按省份拼音排序</div>'
         '</div>'
         '<div class="national-warning-counts">'
         f'<span class="national-badge badge-red">红色 {red_count}</span>'
