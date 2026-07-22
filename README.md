@@ -19,7 +19,6 @@ A Streamlit-based weather dashboard for city-level weather lookup, dynamic visua
 > 在这里放一张项目运行截图。  
 > Add a screenshot of the running app here.
 
-![项目截图 / Project Screenshot]
 <img width="2559" height="1344" alt="image" src="https://github.com/user-attachments/assets/c452957c-f882-41fc-bd5c-8b241ca0d3fd" />
 <img width="2559" height="1341" alt="image" src="https://github.com/user-attachments/assets/d67dcdf0-5804-421d-8425-f571870bb1cf" />
 
