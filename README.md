@@ -8,10 +8,9 @@ A Streamlit-based weather dashboard for city-level weather lookup, dynamic visua
 
 ## 在线体验 | Live Demo
 
-> 部署完成后，将你的 Streamlit Community Cloud 链接放在这里。  
-> Add your Streamlit Community Cloud URL here after deployment.
 
-[在线体验 / Live Demo](https://your-app-url.streamlit.app)
+
+[[在线体验 / Live Demo](https://weather-app-app-xh6zah5padrzxe7bqoab9w.streamlit.app/)
 
 ---
 
@@ -20,7 +19,9 @@ A Streamlit-based weather dashboard for city-level weather lookup, dynamic visua
 > 在这里放一张项目运行截图。  
 > Add a screenshot of the running app here.
 
-![项目截图 / Project Screenshot](assets/screenshot.png)
+![项目截图 / Project Screenshot]
+<img width="2559" height="1344" alt="image" src="https://github.com/user-attachments/assets/c452957c-f882-41fc-bd5c-8b241ca0d3fd" />
+<img width="2559" height="1341" alt="image" src="https://github.com/user-attachments/assets/d67dcdf0-5804-421d-8425-f571870bb1cf" />
 
 ---
 
