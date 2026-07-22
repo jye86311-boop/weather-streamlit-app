@@ -10,7 +10,7 @@ A Streamlit-based weather dashboard for city-level weather lookup, dynamic visua
 
 
 
-[[在线体验 / Live Demo](https://weather-app-app-xh6zah5padrzxe7bqoab9w.streamlit.app/)
+[在线体验 / Live Demo](https://weather-app-app-xh6zah5padrzxe7bqoab9w.streamlit.app/)
 
 ---
 
