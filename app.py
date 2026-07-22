@@ -24,7 +24,7 @@ def 读取配置值(name, default=""):
         return os.getenv(name, default)
 
 
-API_KEY = 读取配置值("QWEATHER_API_KEY")
+API_KEY = 读取配置值("QWEATHER_API_KEY","6054ace77ba14cd884a209cac9d696f2")
 API_HOST = 读取配置值("QWEATHER_API_HOST", "m457rn9bm8.re.qweatherapi.com")
 
 
